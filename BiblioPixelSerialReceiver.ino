@@ -5,15 +5,21 @@ but could be reworked for other libraries.
 If using "SmartMatrix" style panels checkout:
 https://github.com/ManiacalLabs/BiblioPixelSmartMatrix
 **********************************/
-
 #include "FastLED.h"
-//#include <EEPROM.h> // not available in M0
 
 /****************************
 All Firmware options go here!
 ****************************/
+// Comment out below line if EEPROM unavailable on your board
+//#define USE_EEPROM
+
+// If not using EEPROM, you can specify device ID here
+#ifndef USE_EEPROMo
+    const uint8_t deviceID = 0;
+#endif
+
 // How many leds in your strip?
-#define NUM_LEDS 32 * 56
+#define NUM_LEDS 8 * 8
 
 #define DATA_PIN MOSI
 #define CLOCK_PIN SCK
@@ -25,6 +31,10 @@ CRGB leds[NUM_LEDS]; // Define the array of leds
 /***************************
 End Firmware options
 ***************************/
+
+#ifdef USE_EEPROM
+    #include <EEPROM.h>
+#endif
 
 #define FIRMWARE_VER 3
 
@@ -67,7 +77,7 @@ inline void setupFastLED()
     //Just change the config options above
 
     //Data and Clock LEDs
-  FastLED.addLeds<LED_TYPE, CLOCK_PIN, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS); // swap clock/data pins
+    FastLED.addLeds<LED_TYPE, CLOCK_PIN, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
 
     //Data only LEDs
     //FastLED.addLeds<LED_TYPE, DATA_PIN, COLOR_ORDER>(leds, NUM_LEDS);
@@ -76,22 +86,13 @@ inline void setupFastLED()
     FastLED.show();
 }
 
-void fill(const struct CRGB & color){
-  for(int ii=0; ii<NUM_LEDS; ii++){
-    leds[ii] = color;
-    if(ii % 8 == 7){
-      FastLED.show();
-    }
-  }
-}
 void setup()
 {
-    setupFastLED();
-    //FastLED.setBrightness(4); fill(CRGB::Blue);fill(CRGB::Black);
-
     // Full USB 1.1 speed, assuming your chip has native USB
     Serial.begin(12000000);
     Serial.setTimeout(1000);
+
+    setupFastLED();
 }
 
 #define EMPTYMAX 100
@@ -146,7 +147,11 @@ inline void getData()
         }
         else if(cmd == CMDTYPE::GETID)
         {
-	  //Serial.write(EEPROM.read(16));
+            #ifdef USE_EEPROM
+                Serial.write(EEPROM.read(16));
+            #else
+                Serial.write(deviceID);
+            #endif
         }
         else if(cmd == CMDTYPE::SETID)
         {
@@ -157,7 +162,9 @@ inline void getData()
             else
             {
                 uint8_t id = Serial.read();
-                //EEPROM.write(16, id);
+                #ifdef USE_EEPROM
+                    EEPROM.write(16, id);
+                #endif
                 Serial.write(RETURN_CODES::SUCCESS);
             }
         }
