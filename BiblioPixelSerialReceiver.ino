@@ -10,16 +10,16 @@ https://github.com/ManiacalLabs/BiblioPixelSmartMatrix
 /****************************
 All Firmware options go here!
 ****************************/
-// Comment out below line if EEPROM unavailable on your board
-//#define USE_EEPROM
+// Uncomment below line if EEPROM available on your board
+// #define USE_EEPROM
 
 // If not using EEPROM, you can specify device ID here
-#ifndef USE_EEPROMo
+#ifndef USE_EEPROM
     const uint8_t deviceID = 0;
 #endif
 
 // How many leds in your strip?
-#define NUM_LEDS 8 * 8
+#define NUM_LEDS 8 * 8 * 2 * 7
 
 #define DATA_PIN MOSI
 #define CLOCK_PIN SCK
@@ -64,6 +64,13 @@ namespace RETURN_CODES
         ERROR_BAD_CMD = 4,
     };
 }
+
+typedef struct __attribute__((__packed__))
+{
+	uint8_t type;
+	uint16_t pixelCount;
+	uint8_t spiSpeed;
+} config_t;
 
 uint16_t numLEDs = NUM_LEDS;
 uint8_t bytesPerPixel = 3;
@@ -170,9 +177,30 @@ inline void getData()
         }
         else if (cmd == CMDTYPE::SETUP_DATA)
         {
-            for(int i=0; i<size; i++) Serial.read();
-            // Just succeed. Config is hardcoded at compile time
-            Serial.write(RETURN_CODES::SUCCESS);
+            // for(int i=0; i<size; i++) Serial.read();
+
+            uint8_t result = RETURN_CODES::SUCCESS;
+            config_t temp;
+
+            if (size != sizeof(config_t))
+            {
+                result = RETURN_CODES::ERROR_SIZE;
+            }
+            else
+            {
+                size_t read = Serial.readBytes((char*)&temp, sizeof(config_t));
+                if (read != size)
+                {
+                    result = RETURN_CODES::ERROR_SIZE;
+                }
+                else
+                {
+                    if(temp.pixelCount / bytesPerPixel != NUM_LEDS)
+                        result = RETURN_CODES::ERROR_PIXEL_COUNT;
+                }
+            }
+
+            Serial.write(result);
         }
         else if (cmd == CMDTYPE::BRIGHTNESS)
         {
